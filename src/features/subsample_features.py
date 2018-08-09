@@ -53,14 +53,21 @@ def extract_subsample_features(img, window, cspace, cells_per_step, ystart,
     img_tosearch = img[ystart:ystop, :, :]
     ctrans_tosearch = convert_color_rgb(img_tosearch, cspace=cspace)
 
-    if scale != 1:
-        imshape = ctrans_tosearch.shape
-        ctrans_tosearch = cv2.resize(ctrans_tosearch,
-                                     (np.int(imshape[1]/scale),
-                                      np.int(imshape[0]/scale)))
+    # rescale image
+    ctrans_tosearch = rescale_image(ctrans_tosearch, scale)
 
-    hog1, hog2, hog3, nxsteps, nysteps, nblocks_per_window = \
-        subsample_hog(ctrans_tosearch, window, orient, pix_per_cell,
+    # separate images to channels
+    ch1 = img[:, :, 0]
+    ch2 = img[:, :, 1]
+    ch3 = img[:, :, 2]
+
+    # Compute individual channel HOG features for the entire image
+    hog1 = extract_hog_features(ch1, orient, pix_per_cell, cell_per_block)
+    hog2 = extract_hog_features(ch2, orient, pix_per_cell, cell_per_block)
+    hog3 = extract_hog_features(ch3, orient, pix_per_cell, cell_per_block)
+
+    nxsteps, nysteps, nblocks_per_window = \
+        subsample_hog(ch1, window, orient, pix_per_cell,
                       cell_per_block, cells_per_step)
 
     for xb in range(nxsteps):
@@ -104,11 +111,7 @@ def extract_subsample_features(img, window, cspace, cells_per_step, ystart,
     return draw_img
 
 
-def subsample_hog(img, window, orient, pix_per_cell, 
-                  cell_per_block, cells_per_step):
-    ch1 = img[:, :, 0]
-    ch2 = img[:, :, 1]
-    ch3 = img[:, :, 2]
+def subsample_hog(ch1, window, pix_per_cell, cell_per_block, cells_per_step):
 
     # Define blocks and steps
     nxblocks = (ch1.shape[1] // pix_per_cell) - cell_per_block + 1
@@ -119,9 +122,6 @@ def subsample_hog(img, window, orient, pix_per_cell,
     nxsteps = (nxblocks - nblocks_per_window) // cells_per_step + 1
     nysteps = (nyblocks - nblocks_per_window) // cells_per_step + 1
 
-    # Compute individual channel HOG features for the entire image
-    hog1 = extract_hog_features(ch1, orient, pix_per_cell, cell_per_block)
-    hog2 = extract_hog_features(ch2, orient, pix_per_cell, cell_per_block)
-    hog3 = extract_hog_features(ch3, orient, pix_per_cell, cell_per_block)
+    return nxsteps, nysteps, nblocks_per_window
 
-    return hog1, hog2, hog3, nxsteps, nysteps, nblocks_per_window
+
