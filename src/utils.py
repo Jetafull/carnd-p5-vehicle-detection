@@ -62,6 +62,6 @@ def cal_windows_with_step_len(window_len, dist, step_len):
 def rescale_image(img, scale):
     if scale != 1:
         imshape = img.shape
-        img = cv2.resize(img, (np.int(imshape[1]/scale), 
+        img = cv2.resize(img, (np.int(imshape[1]/scale),
                                np.int(imshape[0]/scale)))
     return img

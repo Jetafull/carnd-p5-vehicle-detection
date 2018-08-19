@@ -6,7 +6,7 @@ by subsampling.
 import numpy as np
 import cv2
 from features import extract_hog_features, bin_spatial, color_hist
-from utils import convert_color_rgb
+from utils import convert_color_rgb, rescale_image
 
 
 def extract_subsample_features(img, window, cspace, cells_per_step, ystart,
@@ -75,6 +75,7 @@ def extract_subsample_features(img, window, cspace, cells_per_step, ystart,
             ypos = yb*cells_per_step
             xpos = xb*cells_per_step
             # Extract HOG for this patch
+            # ypos and xpos equal to the starting pos of blocks
             hog_feat1 = hog1[ypos:ypos+nblocks_per_window,
                              xpos:xpos+nblocks_per_window].ravel()
             hog_feat2 = hog2[ypos:ypos+nblocks_per_window,
@@ -89,7 +90,7 @@ def extract_subsample_features(img, window, cspace, cells_per_step, ystart,
             # Extract the image patch
             subimg = cv2.resize(
                 ctrans_tosearch[ytop:ytop+window, xleft:xleft+window],
-                (64, 64))
+                (window, window))
 
             # Get color features
             spatial_features = bin_spatial(subimg, size=spatial_size)
