@@ -10,93 +10,122 @@ The goals / steps of this project are the following:
 * Estimate a bounding box for vehicles detected.
 
 [//]: # (Image References)
-[image1]: ../images/examples/car_not_car.png
-[image2]: ../images/examples/HOG_example.jpg
-[image3]: ../images/examples/sliding_windows.jpg
-[image4]: ../images/examples/sliding_window.jpg
-[image5]: ../images/examples/bboxes_and_heat.png
-[image6]: ../images/examples/labels_map.png
-[image7]: ../images/examples/output_bboxes.png
-[video1]: ../videos/test_video/project_video.mp4
+[image1]: ../images/output_images/hog_visualization.png
+[image2]: ../images/output_images/hog_rgb.png
+[image3]: ../images/output_images/hog_yuv.png
+[image4]: ../images/output_images/false_positive_individual_window.png
+[image5]: ../images/output_images/false_positive_and_threshold.png
+[image6]: ../images/output_images/bbox.png
+[video1]: ../videos/submission_videos/project_video.mp4
 
-## [Rubric](https://review.udacity.com/#!/rubrics/513/view) Points
-### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
+### Structure of The Project
 
----
-### Writeup / README
+The project includes the following files:
 
-#### 1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.  You can submit your writeup as markdown or pdf.  [Here](https://github.com/udacity/CarND-Vehicle-Detection/blob/master/writeup_template.md) is a template writeup for this project you can use as a guide and a starting point.  
-
-You're reading it!
+1. `notebooks/prototype.ipynb`: The code for developing a solution for object detection.
+2. `notebooks/pipeline.ipynb`: An implementation of the pipeline to detect cars in videos.
+3. `reports/writeup.md`: The report for the project.
+4. `images/output_images`: Images used in the writeup file.
+5. `videos/submission_video/project_video.mp4`: The video after processed by the car detector.
 
 ### Histogram of Oriented Gradients (HOG)
 
 #### 1. Explain how (and identify where in your code) you extracted HOG features from the training images.
 
-The code for this step is contained in the first code cell of the IPython notebook (or in lines # through # of the file called `some_file.py`).  
+The code for this step is contained in the `HOG Classifier` and `Color Space` parts in `notebooks/pipeline.ipynb`. I explored different combinations of parameters for HOG. This is an example with `orientation=9`, `pixels_per_cell=16` and `cells_per_block=2`.
 
-I started by reading in all the `vehicle` and `non-vehicle` images.  Here is an example of one of each of the `vehicle` and `non-vehicle` classes:
+![hog_visualization][image1]
 
-![alt text][image1]
+I also compare different color spaces before conducting HOG. Here is an example with the RGB color space:
 
-I then explored different color spaces and different `skimage.hog()` parameters (`orientations`, `pixels_per_cell`, and `cells_per_block`).  I grabbed random images from each of the two classes and displayed them to get a feel for what the `skimage.hog()` output looks like.
+![hog_rgb][image2]
 
-Here is an example using the `YCrCb` color space and HOG parameters of `orientations=8`, `pixels_per_cell=(8, 8)` and `cells_per_block=(2, 2)`:
+Here is an example with YUV color space:
 
+![hog_yuv][image3]
 
-![alt text][image2]
+I found the YUV color space captures different features from the image. For example, in the HOG visualization above the Y channel capture the overall brightness change. The U and V channel capture the gradient change because of color difference. The V channel captures the gradient change around the back light and gives the gradients in that cell higher magnitude.
+
+Each channel in RGB color space gives more similar HOG visualization than the YUV color space. I chose the YUV color space because it gives a more accurate image segmentation in this task.
 
 #### 2. Explain how you settled on your final choice of HOG parameters.
 
-I tried various combinations of parameters and...
+I chose the HOG parameters based on two factors:
+
+1. The dimension of feature vector.
+2. The accuracy of classifier.
+
+I found a higher number of orientation (`orientation`) helps to improves the classifier performance. However, increasing number of orientation can increase the dimensions of the feature vector rapidly. I found 9 to 11 are a range for better result. In this case, I chose 10 as the number of orientation.
+
+I also change the `pixels_per_cell` from 8 to 16 as I found the classifier performs almost the same while the computation time is shortened after increasing this number.
+
+My final choice of HOG parameters are:
+
+1. color space: YUV
+2. number of orientations: 10
+3. pixels_per_cell: 16
+4. cells_per_block: 2
 
 #### 3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features (and color features if you used them).
 
-I trained a linear SVM using...
+The code for this step is contained in `Feature Classify` part in `notebooks/pipeline.ipynb`.
 
-### Sliding Window Search
+I trained a linear SVM using the features below:
 
-#### 1. Describe how (and identify where in your code) you implemented a sliding window search.  How did you decide what scales to search and how much to overlap windows?
+1. Spatial features with spatial size `(16, 16)`
+2. Histograms features with 16 bins
+3. HOG features
 
-I decided to search random window positions at random scales all over the image and came up with this (ok just kidding I didn't actually ;):
+The three types of features are combined after normalization. The dimension of the feature vector is 1896.
 
-![alt text][image3]
+To train the model, I first manually select the vehicle images from the GTI datasets and combine them with the KITTI dataset. My final dataset has 6920 vehicle images and 8972 non-vehicle images. I randomly split the dataset by 80/20 ratio for training and validation.
 
-#### 2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
-
-Ultimately I searched on two scales using YCrCb 3-channel HOG features plus spatially binned color and histograms of color in the feature vector, which provided a nice result.  Here are some example images:
-
-![alt text][image4]
----
+I did not conduct many hyperparameter turnings in this project. I found the Linear SVC model with default hyperparameters performs well enough. The accuracy on the validation set is 99.53%
 
 ### Video Implementation
 
 #### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (somewhat wobbly or unstable bounding boxes are ok as long as you are identifying the vehicles most of the time with minimal false positives.)
-Here's a [link to my video result](./project_video.mp4)
-
+Here's a [link to my video result][video1]
 
 #### 2. Describe how (and identify where in your code) you implemented some kind of filter for false positives and some method for combining overlapping bounding boxes.
 
-I recorded the positions of positive detections in each frame of the video.  From the positive detections I created a heatmap and then thresholded that map to identify vehicle positions.  I then used `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap.  I then assumed each blob corresponded to a vehicle.  I constructed bounding boxes to cover the area of each blob detected.  
+The code for this part is contained in the `Subsampling with multiple windows` in the `notebooks/pipeline.ipynb`.
 
-Here's an example result showing the heatmap from a series of frames of video, the result of `scipy.ndimage.measurements.label()` and the bounding boxes then overlaid on the last frame of video:
+On each frame of the video, I applied multiple scales of windows and record the positive detections from each image. After summing up the positive detections, I applied a threhold on the final heatmap to reduce the number of false positives.
 
-### Here are six frames and their corresponding heatmaps:
+Here is an example of apply multiple scales of windows:
 
-![alt text][image5]
+![false_positive_individual][image4]
 
-### Here is the output of `scipy.ndimage.measurements.label()` on the integrated heatmap from all six frames:
-![alt text][image6]
+The title indicates the parameters for the sliding window: `(image scale, overlap, ystart, ystop)`. The detector identifies most of the positive objects (cars) but there is a false positive on the left-hand side of the first image.
 
-### Here the resulting bounding boxes are drawn onto the last frame in the series:
-![alt text][image7]
+Here is an example after applying the threshold on the heatmap:
 
+![false_positive_thresh][image5]
 
+The left image is the result after summing up the positive detections. There is a false positive on the left side of the heatmap. The right image is the result after applying the threshold. We can see the false positive detection is successfully removed.
 
----
+Finally, I used the `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap. I draw a bounding boxes to cover the area of each blob detected.
+
+Here is an image after applying the threshold and labeling on one frame from the video:
+
+![bounding box][image6]
 
 ### Discussion
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+The pipeline is slow to process the image. I have used the following ways to speed up the detection:
+
+1. Increase the number of pixels per cell to reduce the dimension of feature vector.
+2. Perform HOG on once and then extract the HOG features by subsampling from the image. (see the `search_windows_with_scale` function in the `notebooks/pipeline.ipynb`).
+3. Reduce the spatial size for spatial features.
+
+These methods speed up the detection processing but my current implementation is still not fast enough for near real-time processing on the video. To improve further the processing speed, we can try:
+
+1. Further cropping the image on the x-axis direction to reduce the windows to be processed.
+2. Multi-threading on different scales during processing.
+
+There are still many false positives in detection. One reason is the dataset is still relatively small. We can improve this by augmenting the dataset using different brightness, perspectives and viewing angles.
+
+One issue in the video processing is when two cars are too close, the bounding box will be merged and two cars are identified as a single car. One reason is that we are tracking the objects by its relative positive in the image. This can be misleading since when a different car comes to the same position, it will keep using the records of the previous car. One possible solution is when a new object appears we reset the heatmap records in the surrounding area.
