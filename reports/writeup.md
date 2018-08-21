@@ -13,9 +13,8 @@ The goals / steps of this project are the following:
 [image1]: ../images/output_images/hog_visualization.png
 [image2]: ../images/output_images/hog_rgb.png
 [image3]: ../images/output_images/hog_yuv.png
-[image4]: ../images/output_images/false_positive_individual_window.png
-[image5]: ../images/output_images/false_positive_and_threshold.png
-[image6]: ../images/output_images/bbox.png
+[image4]: ../images/output_images/slide_window_64.png
+[image5]: ../images/output_images/heatmap1.png
 [video1]: ../videos/submission_videos/project_video.mp4
 
 ### Structure of The Project
@@ -80,7 +79,7 @@ The three types of features are combined after normalization. The dimension of t
 
 To train the model, I first manually select the vehicle images from the GTI datasets and combine them with the KITTI dataset. My final dataset has 6920 vehicle images and 8972 non-vehicle images. I randomly split the dataset by 80/20 ratio for training and validation.
 
-I did not conduct many hyperparameter turnings in this project. I found the Linear SVC model with default hyperparameters performs well enough. The accuracy on the validation set is 99.53%
+To prevent overfitting, I set the `C=0.01` in the linear SVC classifier. The accuracy on the validation set is above 99%.
 
 ### Video Implementation
 
@@ -89,27 +88,21 @@ Here's a [link to my video result][video1]
 
 #### 2. Describe how (and identify where in your code) you implemented some kind of filter for false positives and some method for combining overlapping bounding boxes.
 
-The code for this part is contained in the `Subsampling with multiple windows` in the `notebooks/pipeline.ipynb`.
+The code for this part is contained in the `Sliding windows` and `Multiple detections and false positive` in the `notebooks/pipeline.ipynb`.
 
-On each frame of the video, I applied multiple scales of windows and record the positive detections from each image. After summing up the positive detections, I applied a threhold on the final heatmap to reduce the number of false positives.
+On each frame of the video, I applied multiple sizes of windows and record the positive detections from each image. After summing up the positive detections, I applied a threshold on the final heatmap to reduce the number of false positives.
 
-Here is an example of apply multiple scales of windows:
+Here is an example of apply the window with size `(64, 64)` and `overlap=0.75`.
 
 ![false_positive_individual][image4]
 
-The title indicates the parameters for the sliding window: `(image scale, overlap, ystart, ystop)`. The detector identifies most of the positive objects (cars) but there is a false positive on the left-hand side of the first image.
+I used the `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap. I draw a bounding boxes to cover the area of each blob detected.
 
-Here is an example after applying the threshold on the heatmap:
+Here is an example after summing up the heatmap from different sizes of windows and drawing the bounding boxes:
 
-![false_positive_thresh][image5]
+![bounding box][image5]
 
-The left image is the result after summing up the positive detections. There is a false positive on the left side of the heatmap. The right image is the result after applying the threshold. We can see the false positive detection is successfully removed.
-
-Finally, I used the `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap. I draw a bounding boxes to cover the area of each blob detected.
-
-Here is an image after applying the threshold and labeling on one frame from the video:
-
-![bounding box][image6]
+The left image is the result bounding boxes after applying thresholds and labeling. The right image is the corresponding heatmap.
 
 ### Discussion
 
@@ -118,14 +111,14 @@ Here is an image after applying the threshold and labeling on one frame from the
 The pipeline is slow to process the image. I have used the following ways to speed up the detection:
 
 1. Increase the number of pixels per cell to reduce the dimension of feature vector.
-2. Perform HOG on once and then extract the HOG features by subsampling from the image. (see the `search_windows_with_scale` function in the `notebooks/pipeline.ipynb`).
+2. Further cropping the image on the x-axis direction to reduce the windows to be processed.
 3. Reduce the spatial size for spatial features.
 
 These methods speed up the detection processing but my current implementation is still not fast enough for near real-time processing on the video. To improve further the processing speed, we can try:
 
-1. Further cropping the image on the x-axis direction to reduce the windows to be processed.
-2. Multi-threading on different scales during processing.
+1. Multi-threading on different scales during processing.
+2. Perform HOG on once and then extract the HOG features by subsampling from the image.
 
-There are still many false positives in detection. One reason is the dataset is still relatively small. We can improve this by augmenting the dataset using different brightness, perspectives and viewing angles.
+There are still some false positives in detection. One reason is the dataset is still relatively small. We can improve this by augmenting the dataset using different brightness, perspectives and viewing angles.
 
 One issue in the video processing is when two cars are too close, the bounding box will be merged and two cars are identified as a single car. One reason is that we are tracking the objects by its relative positive in the image. This can be misleading since when a different car comes to the same position, it will keep using the records of the previous car. One possible solution is when a new object appears we reset the heatmap records in the surrounding area.
