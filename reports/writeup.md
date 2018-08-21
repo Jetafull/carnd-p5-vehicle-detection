@@ -15,23 +15,26 @@ The goals / steps of this project are the following:
 [image3]: ../images/output_images/hog_yuv.png
 [image4]: ../images/output_images/slide_window_64.png
 [image5]: ../images/output_images/heatmap1.png
-[video1]: ../videos/submission_videos/project_video.mp4
+[video1]: ../videos/submission_video/project_video_result.mp4
 
-### Structure of The Project
+## Structure of The Project
 
 The project includes the following files:
 
 1. `notebooks/prototype.ipynb`: The code for developing a solution for object detection.
 2. `notebooks/pipeline.ipynb`: An implementation of the pipeline to detect cars in videos.
-3. `reports/writeup.md`: The report for the project.
-4. `images/output_images`: Images used in the writeup file.
-5. `videos/submission_video/project_video.mp4`: The video after processed by the car detector.
+3. `notebooks/training.ipynb`: Code to pre-process images and train the classifier.
+4. `reports/writeup.md`: The report for the project.
+5. `images/output_images`: Images used in the writeup file.
+6. `videos/submission_video/project_video.mp4`: The video after processed by the car detector.
+
+## Writeup
 
 ### Histogram of Oriented Gradients (HOG)
 
 #### 1. Explain how (and identify where in your code) you extracted HOG features from the training images.
 
-The code for this step is contained in the `HOG Classifier` and `Color Space` parts in `notebooks/pipeline.ipynb`. I explored different combinations of parameters for HOG. This is an example with `orientation=9`, `pixels_per_cell=16` and `cells_per_block=2`.
+The code for this step is contained in the `HOG Classifier` and `Color Space` parts in `notebooks/prototype.ipynb`. I explored different combinations of parameters for HOG. This is an example with `orientation=10`, `pixels_per_cell=16` and `cells_per_block=2`.
 
 ![hog_visualization][image1]
 
@@ -67,7 +70,7 @@ My final choice of HOG parameters are:
 
 #### 3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features (and color features if you used them).
 
-The code for this step is contained in `Feature Classify` part in `notebooks/pipeline.ipynb`.
+The code for this step is contained in `Feature Classify` part in `notebooks/training.ipynb`.
 
 I trained a linear SVM using the features below:
 
@@ -90,9 +93,17 @@ Here's a [link to my video result][video1]
 
 The code for this part is contained in the `Sliding windows` and `Multiple detections and false positive` in the `notebooks/pipeline.ipynb`.
 
-On each frame of the video, I applied multiple sizes of windows and record the positive detections from each image. After summing up the positive detections, I applied a threshold on the final heatmap to reduce the number of false positives.
+On each frame of the video, I applied multiple sizes of windows and record the positive detections from each image:
 
-Here is an example of apply the window with size `(64, 64)` and `overlap=0.75`.
+| size           | overlap      | y_start_stop | x_start_stop |
+|----------------|--------------|--------------|--------------|
+| (64, 64)       |    0.75      |  (400, 560)  | (540, 1280)  |
+| (96, 96)       |    0.75      |  (395, 600)  | (510, 1280)  |
+| (128, 128)     |    0.75      |  (395, 700)  | (410, 1280)  |
+
+ After summing up the positive detections, I applied a threshold on the final heatmap to reduce the number of false positives.
+
+Here is an example of apply the window with size `(64, 64)` and `overlap=0.75`:
 
 ![false_positive_individual][image4]
 
@@ -104,6 +115,8 @@ Here is an example after summing up the heatmap from different sizes of windows 
 
 The left image is the result bounding boxes after applying thresholds and labeling. The right image is the corresponding heatmap.
 
+In the video processing pipeline, I keep track of the recent heatmaps to smooth the detection numbers. After trial and error I found number of heatmaps of 10 and threshold of 9 gives the smaller false positive and negative rates on the project video.
+
 ### Discussion
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
@@ -111,10 +124,10 @@ The left image is the result bounding boxes after applying thresholds and labeli
 The pipeline is slow to process the image. I have used the following ways to speed up the detection:
 
 1. Increase the number of pixels per cell to reduce the dimension of feature vector.
-2. Further cropping the image on the x-axis direction to reduce the windows to be processed.
+2. Cropping the image on the both x and y directions to reduce the windows to be processed.
 3. Reduce the spatial size for spatial features.
 
-These methods speed up the detection processing but my current implementation is still not fast enough for near real-time processing on the video. To improve further the processing speed, we can try:
+These methods speed up the detection processing but my current implementation is still not fast enough for near real-time processing on the video. Here are some ideas to improve the processing speed:
 
 1. Multi-threading on different scales during processing.
 2. Perform HOG on once and then extract the HOG features by subsampling from the image.
